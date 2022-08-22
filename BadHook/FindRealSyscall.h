@@ -54,20 +54,20 @@ namespace BrutSyscall
 			if (badSyscallNumber != i) // syscallNumber != syscallNumberNtTerminateProcess
 			{
 
- 				nt_status = addressShellCode(NtCurrentProcess, ProcessDebugPort, &DebugFlagBad, sizeof(DebugFlag), 0);
+ 				nt_status = addressShellCode(NtCurrentProcess, ProcessDebugPort, &DebugFlagBad, sizeof(DebugFlagBad), NULL);
  
 				if (nt_status == STATUS_INFO_LENGTH_MISMATCH)
 				{
 					//send with  corrent size value
  
-					nt_status = addressShellCode(NtCurrentProcess, ProcessDebugFlags, &DebugFlag, sizeof(DebugFlag), 0);
+					nt_status = addressShellCode(NtCurrentProcess, ProcessDebugFlags, &DebugFlag, sizeof(DebugFlag), NULL);
 
  
 					if (NT_SUCCESS(nt_status))
 					{
 						//Check 2
  
-						nt_status = addressShellCode(NtCurrentProcess, ProcessDebugObjectHandle, &DebugObject, sizeof(DebugObject), 0);
+						nt_status = addressShellCode(NtCurrentProcess, ProcessDebugObjectHandle, &DebugObject, sizeof(DebugObject), NULL);
 
 						if (nt_status == STATUS_PORT_NOT_SET ||//if debugger don't use or syscall hook NTSTATUS in UM or hook in KM 
 							nt_status == STATUS_SUCCESS //Debugger detect
