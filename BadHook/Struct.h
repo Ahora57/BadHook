@@ -1,4 +1,6 @@
-#pragma once
+#ifndef STRUCT_ENABLE
+#define STRUCT_ENABLE 1
+
 #ifndef WIN32_NO_STATUS
 #define WIN32_NO_STATUS
 #endif
@@ -100,14 +102,13 @@ typedef enum _PROCESSINFOCLASS
 } PROCESSINFOCLASS;
 
 
-typedef NTSTATUS(NTAPI* t_NtQueryInformationProcess)
+NTSTATUS NTAPI NtQueryInformationProcess
 (
-
-
-
+    
 	IN HANDLE               ProcessHandle,
 	IN PROCESSINFOCLASS ProcessInformationClass,
 	OUT PVOID               ProcessInformation,
 	IN ULONG                ProcessInformationLength,
 	OUT PULONG              ReturnLength
 );
+#endif // !STRUCT_ENABLE
