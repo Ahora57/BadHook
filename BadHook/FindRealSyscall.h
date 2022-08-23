@@ -92,7 +92,7 @@ namespace brut_syscall
 				}
 			}
 		}
-		VirtualFree((PVOID)shell_address, NULL, MEM_RELEASE);
+		VirtualFree(reinterpret_cast<PVOID>(shell_address), NULL, MEM_RELEASE);
 		return brut_number;
 	}
 
