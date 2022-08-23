@@ -63,11 +63,11 @@ namespace brut_syscall
 		if (!shell_address)
 			return NULL;
 
-		memcpy(reinterpret_cast<PVOID>(shell_address), &shell_syscall, sizeof(shell_syscall));// write shellcode
+		crt_wrapper::memcpy(reinterpret_cast<PVOID>(shell_address), &shell_syscall, sizeof(shell_syscall));// write shellcode
 
 		for (INT i = NULL; i < 0x13337; i++)
 		{  
-			memcpy(reinterpret_cast<PVOID>(reinterpret_cast<uint64_t>(shell_address) + 1), &i, 4);//set syscall
+			crt_wrapper::memcpy(reinterpret_cast<PVOID>(reinterpret_cast<uint64_t>(shell_address) + 1), &i, 4);//set syscall
 			
 			//not correct lenght
 			nt_status = shell_address(NULL, ProcessDebugFlags, &debug_flag, sizeof(debug_port), NULL);
