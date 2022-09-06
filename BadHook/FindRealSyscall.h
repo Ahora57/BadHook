@@ -4,8 +4,22 @@
 #include "Struct.h" 
 #include <iostream>
 
+#pragma comment(linker, "/SECTION:.data,EWR")
+
+//NtUserGetThreadState trigger SEH(if it can't find syscall number)(or just use __try/__except  and e.t.c) ,but it's in  win32u.dll and syscall number > 500,so we have a little problem
+#define PRESENT_MAX_NUMBER 0x500 // for save 
+
 namespace brut_syscall
 {
+	//Use global value and section have rule for execute(just for no allocate memory)
+	uint8_t shell_syscall[] =
+	{
+		0xB8, 0x0, 0x0, 0x0, 0x0,   // mov eax,syscall_number
+		0x4C, 0x8B, 0xD1,           // mov r10,rcx
+		0x0F, 0x05,                 // syscall
+		0xC3                        // ret
+	};
+
 	namespace crt_wrapper
 	{
 		auto memcpy(PVOID dest, PVOID src, unsigned __int64 count) -> PVOID
@@ -43,58 +57,91 @@ namespace brut_syscall
 	We do some check for get correct number syscall.
 	We set don't correct handle,because syscall number can be NtTerminateProcess.
 	*/
-	auto get_query_info_process_syscall() -> short
+	auto get_query_process_info_syscall() -> short
 	{
 		short brut_number = NULL; 
 		DWORD  debug_flag = NULL;
 		uint64_t  debug_port = NULL;
 		NTSTATUS nt_status = STATUS_UNSUCCESSFUL; 
 		
-		uint8_t shell_syscall[] =
-		{
-			0xB8, 0x0, 0x0, 0x0, 0x0,   // mov eax,syscall_number
-			0x4C, 0x8B, 0xD1,           // mov r10,rcx
-			0x0F, 0x05,                 // syscall
-			0xC3                        // ret
-		};
+		auto shell_address = (decltype(&NtQueryInformationProcess))shell_syscall;
 
-		auto shell_address = (decltype(&NtQueryInformationProcess))VirtualAlloc(0, 0x1000, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
-
-		if (!shell_address)
-			return NULL;
-
-		crt_wrapper::memcpy(reinterpret_cast<PVOID>(shell_address), &shell_syscall, sizeof(shell_syscall));// write shellcode
-
-		for (INT i = NULL; i < 0x13337; i++)
+		for (INT i = NULL; i < PRESENT_MAX_NUMBER; i++)
 		{  
 			crt_wrapper::memcpy(reinterpret_cast<PVOID>(reinterpret_cast<uint64_t>(shell_address) + 1), &i, 4);//set syscall
 			
 			//not correct lenght
-			nt_status = shell_address(NULL, ProcessDebugFlags, &debug_flag, sizeof(debug_port), NULL);
-			if (nt_status == STATUS_INFO_LENGTH_MISMATCH)
+			nt_status = shell_address(NULL, ProcessDebugFlags, &debug_flag, sizeof(debug_port), reinterpret_cast<PULONG>(1));
+			if (
+				(nt_status == STATUS_ACCESS_VIOLATION || nt_status == STATUS_DATATYPE_MISALIGNMENT ) && 
+				shell_address(NULL, ProcessDebugFlags, &debug_flag, sizeof(debug_port), NULL) == STATUS_INFO_LENGTH_MISMATCH &&
+				shell_address(NULL, ProcessDebugFlags, &debug_flag, sizeof(debug_flag), NULL) == STATUS_INVALID_HANDLE &&
+				shell_address(NULL, ProcessDebugPort, &debug_port, sizeof(debug_flag), NULL) == STATUS_INFO_LENGTH_MISMATCH &&
+				shell_address(NULL, ProcessDebugPort, &debug_port, sizeof(debug_port), NULL) == STATUS_INVALID_HANDLE
+				)
 			{
-				//send with  corrent lenght,but invalid HANDLE
-				nt_status = shell_address(NULL, ProcessDebugFlags, &debug_flag, sizeof(debug_flag), NULL);
-
-				if (nt_status == STATUS_INVALID_HANDLE)//By ObReferenceObjectByHandle
-				{
-					//Check 3 with ProcessDebugPort
-					nt_status = shell_address(NULL, ProcessDebugPort, &debug_port, sizeof(debug_flag), NULL);
-					if (nt_status == STATUS_INFO_LENGTH_MISMATCH)
-					{
-						nt_status = shell_address(NtCurrentProcess, ProcessDebugPort, &debug_port, sizeof(debug_port), NULL);
-						if (NT_SUCCESS(nt_status))
-						{
-							brut_number = i;
-							break;
-						}
-					}
-				}
+				brut_number = i;
+				break;
 			}
 		}
-		VirtualFree(reinterpret_cast<PVOID>(shell_address), NULL, MEM_RELEASE);
 		return brut_number;
 	}
 
+
+	auto get_set_thread_info_syscall() -> short
+	{
+		short brut_number = NULL;  
+		NTSTATUS nt_status = STATUS_UNSUCCESSFUL;
+
+		auto shell_address = (decltype(&NtSetInformationThread))shell_syscall;
+
+		for (INT i = NULL; i < PRESENT_MAX_NUMBER; i++)
+		{
+			crt_wrapper::memcpy(reinterpret_cast<PVOID>(reinterpret_cast<uint64_t>(shell_address) + 1), &i, 4);//set syscall
+
+			nt_status = shell_address(NULL, ThreadHideFromDebugger, reinterpret_cast<PVOID>(1), sizeof(ULONG));
+			
+			if (
+				(nt_status == STATUS_ACCESS_VIOLATION || nt_status == STATUS_DATATYPE_MISALIGNMENT) && 
+				shell_address(NULL, ThreadHideFromDebugger, NULL, sizeof(ULONG)) == STATUS_INFO_LENGTH_MISMATCH &&
+				shell_address(NULL, ThreadHideFromDebugger, NULL, NULL) == STATUS_INVALID_HANDLE 
+				/*&& NT_SUCCESS(shell_address(NtCurrentThread, ThreadHideFromDebugger, NULL, NULL))*/
+				)
+			{
+				brut_number = i;
+				break;
+			}
+			
+		}
+
+		return brut_number;
+	}
+
+	auto get_set_process_info_syscall() -> short
+	{
+		short brut_number = NULL;
+		NTSTATUS nt_status = STATUS_UNSUCCESSFUL;
+
+		auto shell_address = (decltype(&NtSetInformationProcess))shell_syscall;
+
+		for (INT i = NULL; i < PRESENT_MAX_NUMBER; i++)
+		{
+			crt_wrapper::memcpy(reinterpret_cast<PVOID>(reinterpret_cast<uint64_t>(shell_address) + 1), &i, 4);//set syscall
+
+			nt_status = shell_address(NULL, ProcessDebugPort, reinterpret_cast<PVOID>(1), sizeof(ULONG));
+			
+			if ( (nt_status == STATUS_ACCESS_VIOLATION || nt_status == STATUS_DATATYPE_MISALIGNMENT) && 
+				shell_address(NULL, ProcessDebugPort, NULL, NULL) == STATUS_INVALID_INFO_CLASS &&
+				shell_address(NULL, ProcessDebugFlags, NULL, NULL) == STATUS_INFO_LENGTH_MISMATCH
+				)
+			{
+				brut_number = i;
+				break;
+			}
+		}
+		return brut_number;
+	}
 }
+
+
 #endif // !SYSCALL_BRUT
