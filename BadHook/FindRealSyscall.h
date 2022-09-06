@@ -7,7 +7,7 @@
 #pragma comment(linker, "/SECTION:.data,EWR")
 
 //NtUserGetThreadState trigger SEH(if it can't find syscall number)(or just use __try/__except  and e.t.c) ,but it's in  win32u.dll and syscall number > 500,so we have a little problem
-#define PRESENT_MAX_NUMBER 0x500 // for save 
+#define PRESENT_MAX_NUMBER 0x500 // for safe 
 
 namespace brut_syscall
 {
